@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>文件上传和密钥发送页面</title>
+  
+      <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script type="text/javascript">
+    $("#chooseImage").on('change',function(){
+	let filePath = $(this).val(); //获取到input的value，里面是文件的路径
+	let fileFormat = filePath.substring(filePath.lastIndexOf(".")).toLowerCase(); //获取文件后缀
+
+	let src = window.URL.createObjectURL(this.files[0]); //转成可以在本地预览的格式
+
+	// 检查是否是图片
+	if( !fileFormat.match(/.png|.jpg|.jpeg|.bmp|.gif/) ) {
+		//error_prompt_alert
+		alert('上传错误,文件格式必须为：png/jpg/jpeg/bmp/gif');
+		this.value = ""; //真的傻逼，val()和value这两个有啥区别？
+		return ;
+	}
+	('#img-avatar').attr('src', src); //将图片地址放置在img的src中。
+});
+</script> 
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #F9F9F9;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .section {
+      margin-bottom: 30px;
+      
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .upload-button,
+    .send-key-button {
+      padding: 8px 20px;
+      background-color: #4CAF50;
+      color: #FFFFFF;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+       
+    }
+
+    .key-input {
+      width: 200px;
+      padding: 5px;
+      font-size: 14px;
+      border: 1px solid #CCCCCC;
+    }
+  </style>
+  <script>
+
+
+    function handleFileChange(event) {
+      /* 获取选择的文件信息 */
+      var file = event.target.files[0];
+      if (file) {
+        /* 文件名显示在界面上 */
+        document.getElementById("file-name").innerText = file.name;
+      }
+    }
+
+    function sendKey() {
+      /* 弹出输入框要求输入密钥值 */
+      var key = prompt("请输入密钥值：");
+      if (key) {
+        /* 发送密钥值给服务器 */
+        // 这里添加发送密钥值给服务器的代码
+        alert("密钥已发送！");
+      }
+    }
+    </script>
+</head>
+<body>
+  <div class="container">
+    <div class="section">
+    <form action ="7" method="post" enctype="multipart/form-data">
+      <h1></h1>
+
+      <input type="file" id="file" name="file" multiple />
+      <div>
+        <button class="upload-button" onclick="uploadFile()">发送文件</button>
+      </div>
+      <p id="file-name"></p>
+      </form>
+    </div>
+
+    <div class="section">
+      <h1></h1>
+      <button class="send-key-button" onclick="sendKey()">接收文件</button>
+    </div>
+  </div>
+</body>
+</html>

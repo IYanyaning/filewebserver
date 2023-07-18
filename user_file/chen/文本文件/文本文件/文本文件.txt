@@ -1,0 +1,14 @@
+{"productName":text_area.text,"owner":ob.getAccount(),"price":price.text,"list":howToList.currentText,"mail":mailYes.text,"freeShipping":free_shipping_rec.freeShipping,"selfPick":self_pickup.text}
+
+
+
+
+
+
+
+
+
+
+
+"{\"productName\":\""+text_area.text+"\",\"owner\":\""+ob.getAccount()+"\",\"price\":\""+price.text+"\",\"list\":\""+howToList.currentText+"\",\"mail\":\""+mailYes.text+"\",\"freeShipping\":\""+free_shipping_rec.freeShipping+"\",\"selfPick\":\""+self_pickup.text+"\"}"
+

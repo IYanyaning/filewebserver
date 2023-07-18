@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>文件上传和密钥发送页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #F9F9F9;
+      text-align: center;
+      padding-top: 50px;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .upload1-button,
+    .upload2-button,
+    .send-key-button {
+      padding: 8px 20px;
+      background-color: #4CAF50;
+      color: #FFFFFF;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .key-input {
+      width: 200px;
+      padding: 5px;
+      font-size: 14px;
+      border: 1px solid #CCCCCC;
+    }
+  </style>
+  <script>
+    function uploadFile() {
+      /* 触发文件上传的 input 元素 */
+      document.getElementById("file-input").click();
+     
+      
+      
+    }
+
+    function handleFileChange(event) {
+      /* 获取选择的文件信息 */
+      var file = event.target.files[0];
+       /*var fileNamesDiv = document.getElementById(file-names);
+      fileNamesDiv.innerHTML = "";
+      for(var i = 0; i < event.target.files.length; i++){
+      console.log(event.target.files.length);
+          if(event.target.files[i]){
+              var fileNameElement = document.createElement("p");
+              fileNameElement.innerText = event.target.files[i].name;
+              fileNamesDiv.appendChild(fileNameElement);
+          }
+      }*/
+      if (file) {
+        /* 文件名显示在界面上 */
+       document.getElementById("file-name").innerText = file.name;
+      }
+      //uploadToServer(file);
+    }
+
+    function sendKey() {
+      /* 弹出输入框要求输入密钥值 */
+      var key = prompt("请输入密钥值：");
+      if (key) {
+        /* 发送密钥值给服务器 */
+        var form = document.createElement("form");
+        form.method = "POST";
+        form.action = "5";
+        var keyInput = document.createElement("input");
+        keyInput.type = "hidden";
+        keyInput.name = "key";
+        keyInput.value = key;
+        form.appendChild(keyInput);
+        document.body.appendChild(form);
+        
+        form.submit();
+      }
+    }
+
+    function uploadToServer(file) {
+      var formData = new FormData();
+      formData.append("file", file);
+      formData.method = "POST";
+      formData.action = "7";
+      formData.submit();
+      //document.getElementById("upload-form").submit(); // 提交表单
+      //alert("提交表达");
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="section">
+    <p>文件上传失败，请重新上传</p>
+      <form action="7" method="post" enctype="multipart/form-data" id="upload-form"> <!-- 替换为实际的文件上传URL -->
+        <h1>发送功能</h1>
+        <input id="file-input" type="file" style="display: none;" name="file"  onchange="handleFileChange(event)" multiple />
+        <div>
+          <button class="upload1-button" type="button" onclick="uploadFile()">选择文件</button>
+          <button class="upload2-button" type="submit" >上传文件</button> <!-- 添加上传文件的按钮 -->
+        </div>
+        <p id="file-name"></p>
+        <!--<div id="file-names"> </div>-->
+      </form>
+      
+    </div>
+
+    <div class="section">
+      <h1>接收功能</h1>
+      <button class="send-key-button" onclick="sendKey()">发送密钥</button>
+    </div>
+  </div>
+</body>
+</html>
+
+
+
+
