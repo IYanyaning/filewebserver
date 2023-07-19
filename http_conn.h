@@ -6,7 +6,7 @@
 #include<unistd.h>
 #include<errno.h>
 #include<string.h>
-#include<string>
+
 #include<stdlib.h>
 #include<sys/stat.h>
 #include<sys/types.h>
@@ -19,6 +19,12 @@
 #include"sql_connection_pool.h"
 #include"locker.h"
 #include"log.h"
+
+#include<string>
+#include <dirent.h>
+#include <minizip/zip.h>
+#include <minizip/unzip.h>//用于压缩文件夹
+#include <map>
 
 #include<fstream>
 #include<sstream>
@@ -107,6 +113,8 @@ private:
 
 
     bool createNewHtml(const string& uuid_key, const string& file_path);
+    bool compress_folder(const char* folder_path, const char* zip_path);
+    int zip_folder(zipFile zip, const char* folder_path, const char* base_path);
 
 public:
     static int m_epollfd;
@@ -131,6 +139,8 @@ private:
     char * m_host;                      //主机名
     int m_content_length;               //HTTP请求的消息总长度
     bool m_linger;                      //HTTP请求是否要求保持连接
+    char * m_boundary;
+    char *m_content_type;
 
     char m_write_buf[ WRITE_BUFFER_SIZE ];//写缓冲区
     int m_write_idx;                    //写缓冲区中待发送的字节数

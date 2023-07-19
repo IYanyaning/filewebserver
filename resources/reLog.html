@@ -3,17 +3,61 @@
     <head>
         <meta charset="UTF-8">
         <title>Sign in</title>
+        <style>
+            body {
+                background-color: #f5f5f5;
+                font-family: Arial, sans-serif;
+            }
+            
+            h1 {
+                text-align: center;
+                color: #333;
+            }
+            
+            .login {
+                max-width: 300px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #fff;
+                border-radius: 5px;
+                box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            
+            input[type="text"],
+            input[type="password"] {
+                width: 100%;
+                padding: 10px;
+                padding-right: 10px;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                margin-bottom: 10px;
+                box-sizing: border-box; /* 设置盒模型为border-box */
+            }
+            
+            button {
+                display: block;
+                width: 100%;
+                padding: 10px;
+                background-color: #007bff;
+                color: #fff;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            
+            button:hover {
+                background-color: #0056b3;
+            }
+        </style>
     </head>
     <body>
-<br/>
-<br/>
-    <div align="center"><font size="5"> <strong>登录过期，请重新登录</strong></font></div>
-    <br/>
+    <h1 align="center">登录过期，请重新登录</h1>
+
         <div class="login">
                 <form action="2CGISQL.cgi" method="post">
-                        <div align="center"><input type="text" name="user" placeholder="用户名" required="required"></div><br/>
-                        <div align="center"><input type="password" name="password" placeholder="登录密码" required="required"></div><br/>
-                        <div align="center"><button type="submit">确定</button></div>
+                        <input type="text" name="user" placeholder="用户名" required="required"><br/>
+                        <input type="password" name="password" placeholder="登录密码" required="required"><br/>
+                        <button type="submit">登录</button>
                 </form>
         </div>
     </body>
