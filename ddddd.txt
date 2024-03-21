@@ -1,0 +1,116 @@
+ 
+http_conn::HTTP_CODE http_conn::do_request()
+{
+    const char* locationEnd = strrchr(m_url, '/');//    /upload，  /login  ,  /register
+
+    if( ( strcmp(locationEnd + 1, "login")  == 0 ) 
+        || ( strcmp(locationEnd + 1, "register") == 0 ) ){
+        printf("login's m_string:%s\n",m_string);//user=chen&passwd=yyy
+        
+        char m_username[100];
+        char m_password[100];
+        const char* pattern = "user=([^&]*)&passwd=([^&]*)";
+        pcre* re = NULL;
+        const char* error = NULL;
+        int erroffset;
+        int ovector[30];
+
+        re = pcre_compile(pattern, 0, &error, &erroffset, NULL);
+
+        if( re == NULL ){
+            LOG_ERROR("PCRE compilaction failed at offset %d: %s\n", erroffset, error);
+            printf("PCRE compilaction failed at offset %d: %s\n", erroffset, error);
+            return BAD_REQUEST;
+        }
+        
+        int rc = pcre_exec(re, NULL, m_string, strlen(m_string), 0, 0, ovector, 30);
+
+        if( rc < 0){
+            if( rc == PCRE_ERROR_NOMATCH){
+                printf("PCRE No match\n");
+                LOG_INFO("PCRE No match:%s\n",m_string);
+            }else{
+                printf("PCRE matching error: %d\n", rc);
+                LOG_ERROR("PCRE matching error: %d\n",rc);
+
+            }
+
+            pcre_free(re);
+
+
+        }
+
+        for (int i = 1; i < rc; i++) {
+            int start = ovector[2 * i];
+            int end = ovector[2 * i + 1];
+            int length = end - start;
+
+            if (i == 1) { // "user" capture group
+                strncpy(m_username, m_string + start, length);
+                m_username[length] = '\0';
+                LOG_INFO("Match %d: %s\n", i, m_username);
+                printf("Match %d: %s\n", i, m_username);
+            } else if (i == 2) { // "passwd" capture group
+                strncpy(m_password, m_string + start, length);
+                m_password[length] = '\0';
+                LOG_INFO("Match %d: %s\n", i, m_password);
+                printf("Match %d: %s\n", i, m_password);
+            }
+        }
+
+
+        if(strcmp(locationEnd + 1, "register") == 0){
+            char *sql_insert = (char *)malloc(sizeof(char) * 200);
+            strcpy(sql_insert, "INSERT INTO test(user_account, user_password) VALUES(");
+            strcat(sql_insert, "'");
+            strcat(sql_insert, m_username);
+            strcat(sql_insert, "', '");
+            strcat(sql_insert, m_password);
+            strcat(sql_insert, "')");
+
+            connectionRAII mysqlcon1(&mysql, m_connection_pool);
+
+            m_locker.lock();
+
+            int res = mysql_query(mysql, sql_insert);
+
+            users.insert(std::pair<string, string>(string(m_username), string(m_password)));
+            m_locker.unlock();
+
+            if (res == 0)
+            {
+                printf("m_url:%s\n", m_url);
+                strcpy(m_url, "/log.html");
+
+                LOG_INFO("--------------client insert data OK---------------");
+            }
+            else
+            {
+                strcpy(m_url, "/registerError.html");
+                LOG_ERROR("--------------client insert data error--------------");
+            }
+        }
+        else
+        {
+            strcpy(m_url, "/registerError.html");
+        }
+        }
+        user_name = m_username;
+        user_password = m_password;
+        pcre_free(re);
+    }else if(strcmp(locationEnd + 1, "register") == 0){
+
+
+    }
+    
+    else if(strcmp(locationEnd + 1, "upload") == 0){//   '/'后一位开始比较,处理上传文件业务
+        printf("%s client upload file\n",locationEnd);
+
+    }
+    
+    
+
+    
+
+    return GET_REQUEST;
+}

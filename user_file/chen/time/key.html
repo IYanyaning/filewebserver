@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>密钥存储页面</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #F9F9F9;
+      text-align: center;
+      padding-top: 100px;
+    }
+
+    .container {
+      max-width: 400px;
+      margin: 0 auto;
+      background-color: #FFFFFF;
+      border: 1px solid #CCCCCC;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .key-value-container {
+      background-color: #F5F5F5;
+      border: 1px solid #EEEEEE;
+      padding: 10px;
+      margin-bottom: 20px;
+      word-break: break-all;
+    }
+
+    .copy-button {
+      padding: 8px 20px;
+      background-color: #4CAF50;
+      color: #FFFFFF;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+  <script>
+    function copyToClipboard() {
+      /* 获取密钥值 */
+      var keyValue = document.getElementById("key-value").innerText;
+
+      /* 创建临时文本框，并将密钥值复制进去 */
+      var tempInput = document.createElement("textarea");
+      tempInput.value = keyValue;
+      document.body.appendChild(tempInput);
+
+      /* 选择临时文本框中的内容，并复制到剪贴板 */
+      tempInput.select();
+      document.execCommand("copy");
+
+      /* 删除临时文本框 */
+      document.body.removeChild(tempInput);
+
+      /* 弹出提示信息 */
+      alert("密钥已复制到剪贴板！");
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>该文件的取件码</h1>
+    <div class="key-value-container">
+      <p id="key-value">cbc886b2-cf5a-4eaf-8d3f-b84630c72800</p>
+    </div>
+    <button class="copy-button" onclick="copyToClipboard()">复制取件码</button>
+  </div>
+</body>
+</html>

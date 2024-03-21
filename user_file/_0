@@ -1,0 +1,11 @@
+ 
+hostname:192.168.216.85
+port:1883
+
+subscribe:chen_Agr
+message: QString data = "temp:23.5, humi:60.1, soilhumi:1";
+
+
+publish:chen_fan
+message: "1" to turn on; "0" to turn off
+

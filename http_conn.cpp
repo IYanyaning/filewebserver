@@ -1,6 +1,5 @@
 #include "http_conn.h"
-#include <map>
-#include "log.h"
+
 using std::map;
 using std::string;
 static int m_close_log = 0;
@@ -32,7 +31,6 @@ locker m_locker;
 void http_conn::initmysql_result(connection_pool *connPool)
 {
     // 先从连接池取一个连接
-    MYSQL *mysql = NULL;
     connectionRAII mysqlcon(&mysql, connPool);
     this->m_connection_pool = connPool;
     // 在user表中检索username， passwd数据， 浏览器输入
@@ -195,8 +193,12 @@ void http_conn::init(int sockfd, const sockaddr_in &addr)
 void http_conn::init()
 {
 
+    cout<<"do init------------------------------------------"<<endl;
     mysql = NULL;
-    m_connection_pool = NULL;
+    if(!m_linger){
+        m_connection_pool = NULL;
+    }
+
     bytes_to_send = 0;
     bytes_have_send = 0;
 
@@ -300,8 +302,10 @@ http_conn::LINE_STATUS http_conn::parse_line()
 // 解析HTTP请求行，获得请求方法， 目标URL,以及HTTL版本号
 http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
 {
+    printf("%s\n", text);
     // GET /index.html HTTP/ 1.1
     m_url = strpbrk(text, " \t"); // 判断第二个参数中的字符在text中最先出现的位置
+    //cout << m_url << endl;
     if (!m_url)
     {
         return BAD_REQUEST;
@@ -355,10 +359,12 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char *text)
     {
         return BAD_REQUEST;
     }
+    //cout << m_url << endl;
     if (strlen(m_url) == 1)
     {
         strcat(m_url, "judge.html");
     }
+    //cout << m_url << endl;
     m_check_state = CHECK_STATE_HEADER;
     return NO_REQUEST;
 }
@@ -421,9 +427,6 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
             m_boundary += strlen("boundary=");
             printf("m_boundary:\n%s\n",m_boundary);
         }*/
-
-        
-        
     }
     else
     {
@@ -513,7 +516,7 @@ bool createDirectory(const string &directory)
 {
     if (directoryExists(directory))
     {
-        cout << "目录已经存在" << std::endl;
+        // cout << "目录已经存在" << std::endl;
         LOG_INFO("目录已经存在", directory);
         return true;
     }
@@ -521,13 +524,13 @@ bool createDirectory(const string &directory)
     {
         if (mkdir(directory.c_str(), 0777) == 0)
         {
-            cout << "目录创建成功" << std::endl;
+            // cout << "目录创建成功" << std::endl;
             LOG_INFO("目录创建成功", directory);
             return true;
         }
         else
         {
-            std::cerr << "无法创建目录:" << directory << std::endl;
+            // std::cerr << "无法创建目录:" << directory << std::endl;
             LOG_ERROR("无法创建目录", directory);
             return false;
         }
@@ -562,11 +565,13 @@ bool http_conn::createNewHtml(const string &uuid_key, const string &file_path)
     return true;
 }
 
-bool http_conn::compress_folder(const char* folder_path, const char* zip_path){
+bool http_conn::compress_folder(const char *folder_path, const char *zip_path)
+{
     // 创建 zip 文件
     zipFile zip = zipOpen64(zip_path, 0);
-    if (zip == NULL) {
-        //printf("Failed to create zip file.\n");
+    if (zip == NULL)
+    {
+        // printf("Failed to create zip file.\n");
         return false;
     }
 
@@ -576,28 +581,33 @@ bool http_conn::compress_folder(const char* folder_path, const char* zip_path){
     // 关闭 zip 文件
     zipClose(zip, NULL);
 
-    if (result != 0) {
-        //printf("Failed to compress folder.\n");
+    if (result != 0)
+    {
+        // printf("Failed to compress folder.\n");
         return false;
     }
 
-    //printf("Folder compressed successfully.\n");
+    // printf("Folder compressed successfully.\n");
     return true;
 }
 
-int http_conn::zip_folder(zipFile zip, const char* folder_path, const char* base_path){
+int http_conn::zip_folder(zipFile zip, const char *folder_path, const char *base_path)
+{
     // 打开文件夹
-    DIR* folder = opendir(folder_path);
-    if (folder == NULL) {
+    DIR *folder = opendir(folder_path);
+    if (folder == NULL)
+    {
         printf("Failed to open folder: %s\n", folder_path);
         return -1;
     }
 
     // 读取文件夹内容
-    struct dirent* entry;
-    while ((entry = readdir(folder)) != NULL) {
+    struct dirent *entry;
+    while ((entry = readdir(folder)) != NULL)
+    {
         // 忽略 . 和 .. 目录
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
             continue;
         }
 
@@ -606,13 +616,15 @@ int http_conn::zip_folder(zipFile zip, const char* folder_path, const char* base
         snprintf(file_path, sizeof(file_path), "%s/%s", folder_path, entry->d_name);
 
         // 判断文件类型
-        if (entry->d_type == DT_REG) {
+        if (entry->d_type == DT_REG)
+        {
             // 构建 zip 中的路径，去除基本路径前缀
-            const char* rel_path = file_path + strlen(base_path) + 1;
+            const char *rel_path = file_path + strlen(base_path) + 1;
 
             // 添加文件到 zip
-            FILE* file = fopen64(file_path, "rb");
-            if (file == NULL) {
+            FILE *file = fopen64(file_path, "rb");
+            if (file == NULL)
+            {
                 printf("Failed to open file: %s\n", file_path);
                 return -1;
             }
@@ -625,17 +637,21 @@ int http_conn::zip_folder(zipFile zip, const char* folder_path, const char* base
             // 读取文件内容并写入 zip
             char buffer[Mycompress::WRITEBUFFERSIZE];
             int size;
-            while ((size = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+            while ((size = fread(buffer, 1, sizeof(buffer), file)) > 0)
+            {
                 zipWriteInFileInZip(zip, buffer, size);
             }
 
             // 关闭文件和 zip 中的文件
             fclose(file);
             zipCloseFileInZip(zip);
-        } else if (entry->d_type == DT_DIR) {
+        }
+        else if (entry->d_type == DT_DIR)
+        {
             // 递归压缩子文件夹
             int result = zip_folder(zip, file_path, base_path);
-            if (result != 0) {
+            if (result != 0)
+            {
                 closedir(folder);
                 return result;
             }
@@ -653,170 +669,258 @@ int http_conn::zip_folder(zipFile zip, const char* folder_path, const char* base
 // 映射到内存地址m_file_address处，并告诉调用者获取文件成功
 http_conn::HTTP_CODE http_conn::do_request()
 {
-    // "/root/chen/webserver/resources"
-    strcpy(m_real_file, doc_root);
-    int len = strlen(doc_root);
-    cout << "derequest---------------\n";
-    // printf("m_url:%s\n",m_url);
-    const char *p = strrchr(m_url, '/');
+    const char *locationEnd = strrchr(m_url, '/');
 
-    // 处理cgi
-    if (cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3'))
+    if ((strcmp(locationEnd + 1, "rigster") == 0) || (strcmp(locationEnd + 1, "login") == 0))
     {
+        printf("login's m_string:%s\n", m_string); // user=chen&passwd=yyy
 
-        // 根据标志判断是登录检测还是注册检测
-        char flag = m_url[1];
+        char name[20]; // 临时存储由用户上传的用户名和密码
+        char password[20];
+        const char *pattern = "user=([^&]*)&passwd=([^&]*)";
+        pcre *re = NULL;
+        const char *error = NULL;
+        int erroffset;
+        int ovector[30];
 
-        char *m_url_real = (char *)malloc(sizeof(char) * 200);
+        re = pcre_compile(pattern, 0, &error, &erroffset, NULL);
 
-        strcpy(m_url_real, "/");
-
-        strcat(m_url_real, m_url + 2);
-
-        strncpy(m_real_file + len, m_url_real, FILENAME_LEN - len - 1);
-
-        free(m_url_real);
-
-        // 将用户名和密码提取出来
-        // user=123&&passwd=123
-        // printf("m_string:%s\n",m_string);
-        char name[100], password[100];
-        int i;
-        for (i = 5; m_string[i] != '&'; ++i)
+        if (re == NULL)
         {
-            name[i - 5] = m_string[i];
-            name[i - 5 + 1] = '\0';
-        }
-        int j = 0;
-        for (i = i + 10; m_string[i] != '\0'; ++i, ++j)
-        {
-            password[j] = m_string[i];
-            password[j + 1] = '\0';
+            LOG_ERROR("PCRE compilaction failed at offset %d: %s\n", erroffset, error);
+            printf("PCRE compilaction failed at offset %d: %s\n", erroffset, error);
+            return BAD_REQUEST;
         }
 
-        user_name = name;
-        user_password = password;
+        int rc = pcre_exec(re, NULL, m_string, strlen(m_string), 0, 0, ovector, 30);
 
-        // 同步线程登录校验
-        if (*(p + 1) == '3')
+        if (rc < 0)
         {
-            // 如果是注册，先检测数据库中是否有重名的
-            // 没有重名的，进行增加数据
-
-            if (users.find(name) == users.end())
+            if (rc == PCRE_ERROR_NOMATCH)
             {
-
-                char *sql_insert = (char *)malloc(sizeof(char) * 200);
-                strcpy(sql_insert, "INSERT INTO test(user_account, user_password) VALUES(");
-                strcat(sql_insert, "'");
-                strcat(sql_insert, name);
-                strcat(sql_insert, "', '");
-                strcat(sql_insert, password);
-                strcat(sql_insert, "')");
-
-                connectionRAII mysqlcon1(&mysql, m_connection_pool);
-
-                m_locker.lock();
-
-                int res = mysql_query(mysql, sql_insert);
-
-                users.insert(std::pair<string, string>(string(name), string(password)));
-                m_locker.unlock();
-
-                if (res == 0)
-                {
-                    printf("m_url:%s\n", m_url);
-                    strcpy(m_url, "/log.html");
-
-                    LOG_INFO("--------------client insert data OK---------------");
-                }
-                else
-                {
-                    strcpy(m_url, "/registerError.html");
-                    LOG_ERROR("--------------client insert data error--------------");
-                }
+                printf("PCRE No match\n");
+                LOG_INFO("PCRE No match:%s\n", m_string);
             }
             else
             {
-                strcpy(m_url, "/registerError.html");
+                printf("PCRE matching error: %d\n", rc);
+                LOG_ERROR("PCRE matching error: %d\n", rc);
+            }
+            pcre_free(re);
+        }
+
+        for (int i = 1; i < rc; i++)
+        {
+            int start = ovector[2 * i];
+            int end = ovector[2 * i + 1];
+            int length = end - start;
+
+            if (i == 1)
+            { // "user" capture group
+                strncpy(name, m_string + start, length);
+                name[length] = '\0';
+                LOG_INFO("Match %d: %s\n", i, name);
+                printf("Match %d: %s\n", i, name);
+            }
+            else if (i == 2)
+            { // "passwd" capture group
+                strncpy(password, m_string + start, length);
+                password[length] = '\0';
+                LOG_INFO("Match %d: %s\n", i, password);
+                printf("Match %d: %s\n", i, password);
             }
         }
-        else if (*(p + 1) == '2')
+
+        if (strcmp(locationEnd + 1, "register") == 0)
+        {
+            char *sql_insert = (char *)malloc(sizeof(char) * 200);
+            strcpy(sql_insert, "INSERT INTO test(user_account, user_password) VALUES(");
+            strcat(sql_insert, "'");
+            strcat(sql_insert, name);
+            strcat(sql_insert, "', '");
+            strcat(sql_insert, password);
+            strcat(sql_insert, "')");
+
+            connectionRAII mysqlcon1(&mysql, m_connection_pool);
+
+            m_locker.lock();
+
+            int res = mysql_query(mysql, sql_insert);
+
+            users.insert(std::pair<string, string>(string(name), string(password)));
+            m_locker.unlock();
+
+            if (res == 0)
+            {
+                // 处理注册成功
+                m_linger = true;
+                user_name = name;
+                user_password = password;
+
+                LOG_INFO("client: %s register success!", name);
+                return REGISTER_REQUEST_10;
+            }
+            else
+            {
+                // 处理注册失败
+                LOG_ERROR("client: %s register failed!", name);
+                return REGISTER_REQUEST_11;
+            }
+        }
+        else
         {
             if (users.find(name) != users.end() && users[name] == password)
             {
-                strcpy(m_url, "/send_rev.html");
+                // 处理登录成功
+                LOG_INFO("client: %s login success!", name);
+                // //MYSQL *mysql = NULL;
+                // connectionRAII mysqlcon(&mysql, m_connection_pool);
+                // if (mysql == NULL)
+                // {
+                //     cout << "mysql is NULL" << endl;
+                // }
+                // const char *query = "SELECT f.id, f.file_name, f.user_name, f.parent_folder_id, f.file_size, f.upload_time, f.is_directory, f.md5, f.relative_file_path, NULL as folder_name, 'file' as type FROM file_table f WHERE f.user_name = 'chen' UNION ALL SELECT fo.id, fo.folder_name as file_name, fo.user_name, fo.parent_folder_id, NULL as file_size, NULL as upload_time, 1 as is_directory, NULL as md5, NULL as relative_file_path, fo.folder_name, 'folder' as type FROM folder_table fo WHERE fo.user_name = 'chen' ORDER BY parent_folder_id;";
+                // if (mysql_query(mysql, query) != 0)
+                // {
+                //     LOG_ERROR("SELECT error:%s\n", mysql_error(mysql));
+                //     fprintf(stderr, "查询数据时出错: %s\n", mysql_error(mysql));
+                // }
+
+                // MYSQL_RES *result = mysql_store_result(mysql);
+                // if (result == NULL)
+                // {
+                //     LOG_ERROR("无法获取查询结果: %s\n", mysql_error(mysql));
+                //     mysql_free_result(result);
+                //     fprintf(stderr, "无法获取查询结果: %s\n", mysql_error(mysql));
+                // }
+                // FileNode *root = new FileNode();
+                // root->userName = "chen";
+                // root->isDirectory = true;
+                // buildFileTree(root, result);
+
+                // Json::Value jsonRoot = converToJson(root);
+
+                // cout << jsonRoot.toStyledString() << endl;
+                
+                // mysql_free_result(result);
+                // m_connection_pool->ReleaseConnection(mysql);
+                //delete root;
+                connectionRAII mysqlcon(&mysql, m_connection_pool);
+                MYSQL_RES *res;
+                MYSQL_ROW row;
+                if(mysql == NULL){
+                    return INTERNAL_ERROR;
+                }
+                string query = "SELECT file_name, size FROM file_info WHERE user_name='" + string(name) + "'";
+                if (mysql_query(mysql, query.c_str()) != 0) {
+                    LOG_ERROR("SELECT error:%s\n", mysql_error(mysql));
+                    std::cerr << "Error querying database: " << mysql_error(mysql) << std::endl;
+                    return INTERNAL_ERROR;
+                }
+
+                res = mysql_store_result(mysql);
+
+                Json::Value root;
+                Json::Value files(Json::arrayValue);
+
+                while ((row = mysql_fetch_row(res))) {
+                    Json::Value file;
+                    file["file_name"] = row[0];
+                    file["size"] = std::stoi(row[1]);
+                    files.append(file);
+                }
+
+                root["username"] = (string)name;
+                root["files"] = files;
+                root["CODE"] = 20;
+                Json::StreamWriterBuilder builder;
+                m_allFilesJson = Json::writeString(builder, root);
+
+                std::cout << "JSON output:\n" << m_allFilesJson << std::endl;
+
+                mysql_free_result(res);
+                m_connection_pool->ReleaseConnection(mysql);
+                m_linger = true;
+                user_name = name;
+                user_password = password;
+                LOG_INFO("client: %s login success!", name)
+                return LOGIN_REQUEST_20;
             }
             else
             {
-                strcpy(m_url, "/logError.html");
-            }
-        }
-    }
-
-    if (*(p + 1) == '0')
-    {
-        char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        strcpy(m_url_real, "/register.html");
-        strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
-        free(m_url_real);
-    }
-    else if (*(p + 1) == '1')
-    {
-        char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        strcpy(m_url_real, "/log.html");
-        strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
-
-        free(m_url_real);
-    }
-    else if (*(p + 1) == '5')
-    {
-        printf("m_string:\n%s\n", m_string);
-        string uuid_key;
-        int i;
-        for (i = 4; uuid_key.length() < 36; ++i)
-        {
-            uuid_key += m_string[i];
-        }
-        for (const auto &pair : uuid_file_path)
-        {
-            cout << "pair.first:" << pair.first.length() << std::endl;
-            if (pair.first == uuid_key)
-            {
-                
-                //将文件打包
-                cout<<"===============================相等了\n";
-
-                string dirPath = pair.second; // 目录路径
-                string outputFilePath = pair.second + ".zip";//"/path/to/output.zip"; // 压缩文件输出路径
-                if(compress_folder(dirPath.c_str(), outputFilePath.c_str())){
-                    text = true;
-                    strcpy(m_real_file, outputFilePath.c_str());
-                    break;
-                }    
+                // 处理登录失败
+                LOG_ERROR("client: %s login failed!", name)
+                return LOGIN_REQUEST_21;
             }
         }
 
-        if (!text)
-        {
-            char *m_url_real = (char *)malloc(sizeof(char) * 200);
-            strcpy(m_url_real, "/re_send_rev(key).html");
-            strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
-            free(m_url_real);
+    }
+    else if(strcmp(locationEnd + 1, "requestupload") == 0){
+        //客户端发送md5、size询问这个文件是否需要在服务器存储
+        string md5;
+        int size;
+        Json::Value jsonData;
+        Json::CharReaderBuilder builder;
+        Json::CharReader* reader = builder.newCharReader();
+        JSONCPP_STRING errs;
+        
+        if (reader->parse(m_string, m_string + strlen(m_string), &jsonData, &errs)) {
+            md5 = jsonData["md5"].asString();
+            size = jsonData["size"].asInt();
+            std::cout << "MD5: " << md5 << std::endl;
+            std::cout << "Size: " << size << std::endl;
+        } else {
+            std::cerr << "Failed to parse JSON: " << errs << std::endl;
+        }
+
+        delete reader;
+        LOG_INFO("ask file: md5: %s, size: %d", md5.c_str(), size);
+
+        connectionRAII mysqlcon(&mysql, m_connection_pool);
+        if(mysql == NULL){
+            return INTERNAL_ERROR;
+        }
+        /*
+                CREATE TABLE md5_size (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                md5 VARCHAR(32) NOT NULL,
+                size INT NOT NULL
+            );
+        */
+        string query = "SELECT * FROM md5_size WHERE md5='" + md5 + "' AND size=" + std::to_string(size);
+        if(mysql_query(mysql, query.c_str()) != 0){
+            LOG_ERROR("SELECT error:%s\n", mysql_error(mysql));
+            fprintf(stderr, "查询数据时出错: %s\n", mysql_error(mysql));
+            return INTERNAL_ERROR;
+        }
+        MYSQL_RES* result = mysql_store_result(mysql);
+        if( result == NULL ){
+            LOG_ERROR("无法获取查询结果: %s\n", mysql_error(mysql));
+            mysql_free_result(result);
+            fprintf(stderr, "无法获取查询结果: %s\n", mysql_error(mysql));
+            mysql_free_result(result); // 释放未成功获取结果集时分配的资源
+            m_connection_pool->ReleaseConnection(mysql);
+            return INTERNAL_ERROR;
+        }
+        MYSQL_ROW row;
+        if ((row = mysql_fetch_row(result)) != NULL) {
+            LOG_INFO("ask file: md5: %s, size: %d is existed", md5.c_str(), size);
+            std::cout << "Record found in the database for md5: " << md5 << " and size: " << size << std::endl;
+            mysql_free_result(result);
+            m_connection_pool->ReleaseConnection(mysql);
+            return ASK_FILE_EXIST_30;
+        } else {
+            LOG_INFO("ask file: md5: %s, size: %d is not existed", md5.c_str(), size);
+            std::cout << "Record not found in the database for md5: " << md5 << " and size: " << size << std::endl;
+            mysql_free_result(result);
+            m_connection_pool->ReleaseConnection(mysql);
+            return ASK_FILE_EXIST_31;
         }
     }
-    else if (*(p + 1) == '6')
+    else if (strcmp(locationEnd + 1, "upload") == 0)
     {
-        char *m_url_real = (char *)malloc(sizeof(char) * 200);
-        strcpy(m_url_real, "/video.html");
-        strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
-
-        free(m_url_real);
-    }
-    else if (*(p + 1) == '7')
-    {
-        printf("m_string:\n%s", m_string);
-        cout << "**********************************************************\n";
+        printf("%s client upload file\n", locationEnd);
+        //cout << "**********************************************************\n";
         // 30位 3345 0425 0724 7164 7520 2816 9270 24
         // 29位 ---- ---- ---- ---- ---- ---- ---- -
 
@@ -826,9 +930,12 @@ http_conn::HTTP_CODE http_conn::do_request()
 
         if (!user_name.empty())
         {
+            std::string username, md5;
+            int size;
+            string filename;
             std::string boundary;
             std::string requestBody = m_string;
-
+            //printf("m_string: %s\n",m_string);
             std::istringstream iss(requestBody);
 
             std::string line;
@@ -839,45 +946,60 @@ http_conn::HTTP_CODE http_conn::do_request()
             boundary.pop_back();
 
             boundary += tmp;
-//---- WebK itFo rmBo unda ry9c mHoP tajp bQWj o2
-            std::cout << "boundary:\n"
-                      << boundary << std::endl;
+            //---- WebK itFo rmBo unda ry9c mHoP tajp bQWj o2
+            //std::cout << "boundary:\n"
+            //          << boundary << std::endl;
             string file_path = "./user_file/";
             string file_path_for_uuid_key = file_path;
             bool file_path_sure = false;
             bool m_string_is_end = true;
             while (m_string_is_end)
             {
-
-                // if( line.find(  boundary ) != string::npos){
-                if (strncmp(line.c_str(), boundary.c_str(), boundary.length() - 2 ) == 0)
+                if (strncmp(line.c_str(), boundary.c_str(), boundary.length() - 2) == 0)
                 {
-
-                    string filename;
                     string data;
-
-                    while (std::getline(iss, line))
+                    while (std::getline(iss, line)) // 解析请求头（content-type,content-dispositionheader
                     {
-                        cout << "two while getline\n"
-                             << line << std::endl;
                         if (line.find("Content-Disposition: form-data;") != string::npos)
                         {
-                            size_t pos = line.find("filename=\"");
-                            if (pos != string::npos)
-                            {
-                                filename = line.substr(pos + 10);
-                                cout << filename << std::endl;
-                                filename = filename.substr(0, filename.length() - 2);
-                            }
-                            else
-                            {
-                                pos = line.find("name=\"");
-                                if (pos != string::npos)
-                                {
-                                    string name = line.substr(pos + 6);
-                                    name = name.substr(0, name.length() - 1);
+                            line = line.substr(32);
+                            std::istringstream iss(line);
+                            std::string token;
+                            while (std::getline(iss, token, ';')) {
+                                // if (token.find("filename") != std::string::npos) {
+                                //     filename = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("username") != std::string::npos) {
+                                //     username = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("size") != std::string::npos) {
+                                //     size = std::stoi(token.substr(token.find("=") + 1));
+                                // } else if (token.find("time") != std::string::npos) {
+                                //     time = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("isDirectory") != std::string::npos) {
+                                //     isDirectory = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("md5") != std::string::npos) {
+                                //     md5 = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("filetype") != std::string::npos) {
+                                //     filetype = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // } else if (token.find("name") != std::string::npos) {
+                                //     name = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                // }
+                                if (token.find("filename") != std::string::npos) {
+                                    filename = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                } else if (token.find("username") != std::string::npos) {
+                                    username = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
+                                } else if (token.find("size") != std::string::npos) {
+                                    size = std::stoi(token.substr(token.find("=") + 1));
+                                } 
+                                else if (token.find("md5") != std::string::npos) {
+                                    md5 = token.substr(token.find("\"") + 1, token.find_last_of("\"") - token.find("\"") - 1);
                                 }
                             }
+
+                            std::cout << "filename: " << filename << std::endl;
+                            std::cout << "username: " << username << std::endl;
+                            std::cout << "size: " << size << std::endl;
+                            std::cout << "md5: " << md5 << std::endl;
+                            file_path += md5 + "_" + std::to_string(size);
                         }
                         else if (line.find("Content-Type:") != string::npos)
                         {
@@ -889,7 +1011,7 @@ http_conn::HTTP_CODE http_conn::do_request()
                         }
                         else if (line == "\r")
                         {
-                            cout << "我走出了循环落\n";
+                            // cout << "我走出了循环落\n";
                             break;
                         }
                     }
@@ -898,8 +1020,9 @@ http_conn::HTTP_CODE http_conn::do_request()
                     //---- ---- ---- ---- ---- ---- ---- -409 3948 8311 2542 3271 2652 6780 42
                     while (std::getline(iss, line))
                     {
+                        cout<<line<<endl;
                         // if( line.find(  boundary ) != string::npos){
-                        if (strncmp(line.c_str(), boundary.c_str(), boundary.length() -2 ) == 0)
+                        if (strncmp(line.c_str(), boundary.c_str(), boundary.length() - 2) == 0)
                         {
 
                             if (strncmp(line.c_str(), boundary.c_str(), boundary.length()) == 0)
@@ -907,15 +1030,14 @@ http_conn::HTTP_CODE http_conn::do_request()
                                 m_string_is_end = false;
                                 break;
                             }
-                            cout << "line:\n"
-                                 << line << std::endl;
+                             //cout << "line:\n"<< line << std::endl;
                             data.pop_back();
                             LOG_INFO("save filename: %s", filename);
                             break;
                         }
                         else
                         {
-                            cout << "添加了：" << line << std::endl;
+                             //cout << "添加了：" << line << std::endl;
                             data += line + "\n";
                         }
                     }
@@ -923,60 +1045,64 @@ http_conn::HTTP_CODE http_conn::do_request()
                     if (!filename.empty() && !data.empty())
                     {
 
-                        int pos = 0;
-                        pos = filename.find('.');
-                        string file_name_dir = filename.substr(0, pos);
-                        if (!file_path_sure)
-                        {
-                            file_path += user_name;
+                        // int pos = 0;
+                        // pos = filename.find('.');
+                        // string file_name_dir = filename.substr(0, pos);
+                        // if (!file_path_sure)
+                        // {
+                        //     //file_path += user_name;
 
-                            if(!createDirectory(file_path)){
-                                file_err = true;
-                                break;
-                            }
+                        //     if (!createDirectory(file_path))
+                        //     {
+                        //         file_err = true;
+                        //         break;
+                        //     }
 
-                            file_path += "/";
-                            
-                            file_path += file_name_dir;
-                            file_path_for_uuid_key = file_path;
-                            file_path_sure = true;
-                            if (!createDirectory(file_path))
-                            {
-                                file_err = true;
-                                break;
-                            }
-                        }
-                        file_path += "/";
-                        file_path += file_name_dir;
+                        //     //file_path += "/";
 
-                        if (createDirectory(file_path))
-                        {
+                        //     //file_path += file_name_dir;
+                        //     file_path_for_uuid_key = file_path;
+                        //     file_path_sure = true;
+                        //     if (!createDirectory(file_path))
+                        //     {
+                        //         file_err = true;
+                        //         break;
+                        //     }
+                        // }
+                        //file_path += "/";
+                        //file_path += file_name_dir;
+                        //cout<<"file path:" << file_path << endl;
+                        //if (createDirectory(file_path))
+                        //{
                             // 创建文件
-                            file_path += "/";
-                            file_path += filename;
-                            cout << "file_path:" << file_path << std::endl;
+                            //file_path += "/";
+                            //file_path += filename;
+                            // cout << "file_path:" << file_path << std::endl;
                             std::ofstream file(file_path, std::ios::out | std::ios::binary);
                             if (file.is_open())
                             {
                                 file << data;
                                 file.close();
-                                cout << "File saved successfully:" << filename << std::endl;
+                                // cout << "File saved successfully:" << filename << std::endl;
+                                LOG_INFO("File:%s saved successfully", filename.c_str());
                                 file_path = file_path_for_uuid_key;
                             }
                             else
                             {
                                 cout << "Failed to save file:" << filename << std::endl;
-                                LOG_ERROR("Failed to save file:", filename);
+                                LOG_ERROR("Failed to save file:", filename.c_str());
                                 file_err = true;
                             }
-                        }
+                        //}
                     }
                 }
             }
 
             if (file_err)
             {
-                strcpy(m_url_real, "/reWelcome.html");
+                m_linger = true;
+                return UPLOAD_REQUEST_41;
+                
             }
             else
             {
@@ -992,110 +1118,135 @@ http_conn::HTTP_CODE http_conn::do_request()
                 // 打印生成的 UUID
                 printf("生成的 UUID 为：%s\n", uuidString);
 
-                string keyhtml = file_path_for_uuid_key + "/key.html";
-                cout << keyhtml << std::endl;
-                // 操作密钥e1e9 41fb -dc9 f-43 59-8 d72- d62c 06e9 f388
+                    /*
+                    CREATE TABLE file_info (
+                    user_name VARCHAR(20),
+                    file_name VARCHAR(255),
+                    md5 VARCHAR(32),
+                    size INT
+                ); */
+                connectionRAII mysqlcon(&mysql, m_connection_pool);
+                if(mysql == NULL){
+                    LOG_ERROR("mysqlcon(&mysql, m_connection_poop) failed");
+                    return INTERNAL_ERROR;
+                }
+                string query = "INSERT INTO md5_size (md5, size) VALUES ('" + md5 + "', " + std::to_string(size) + ")";
+                if (mysql_query(mysql, query.c_str()) != 0) {
+                    std::cerr << "Error inserting data into database: " << mysql_error(mysql) << std::endl;
+                    LOG_ERROR("mysql_query(mysql, query.c_str()) failed");
+                    return INTERNAL_ERROR;
+                }
+                
+                query = "INSERT INTO file_info (user_name, file_name, md5, size) VALUES ('" + username + "', '" + filename + "', '" + md5 + "', " + std::to_string(size) + ")";
+                if (mysql_query(mysql, query.c_str()) != 0) {
+                    std::cerr << "Error inserting data into database: " << mysql_error(mysql) << std::endl;
+                    LOG_ERROR("mysql_query(mysql, query.c_str()) failed");
+                    return INTERNAL_ERROR;
+                }
+                m_connection_pool->ReleaseConnection(mysql);    
+                    // connectionRAII mysqlcon(&mysql, this->m_connection_pool);
+                    // if (mysql == NULL)
+                    // {
+                    // cout << "mysql is NULL" << endl;
+                    // }
+                    // cout<<"query1"<<endl;
+                    // std::string query = "INSERT INTO file_table (file_name, user_name, parent_folder_id, file_size, upload_time, is_directory, md5, relative_file_path) VALUES (?, ?, 0, ?, ?, ?, ?, ?)";
+                    // cout<<"query"<<endl;
+                    // MYSQL_STMT *stmt = mysql_stmt_init(mysql);
+                    // cout<<"stmt"<<endl;
+                    // if (!stmt) {
+                    //     std::cout << "Could not initialize statement" << std::endl;
+                        
+                    // }
 
-                if (createNewHtml(uuidString, keyhtml))
-                {
+                    // if (mysql_stmt_prepare(stmt, query.c_str(), query.length())) {
+                    //     std::cout << "Prepare statement failed: " << mysql_stmt_error(stmt) << std::endl;
+                        
+                    // }
 
-                    // 设置要插入的数据
-                    const char *account = user_name.c_str();
-                    const char *uuid = uuidString;
-                    const char *file_path = file_path_for_uuid_key.c_str();
-                    int download_count = 2;
+                    // MYSQL_BIND bind[7];
+                    // memset(bind, 0, sizeof(bind));
 
-                    // 构建插入语句
-                    char insert_query[512];
-                    sprintf(insert_query, "INSERT INTO user_files (user_account, uuid, file_path, download_count) VALUES ('%s', '%s', '%s', %d)",
-                            account, uuid, file_path, download_count);
-                    connectionRAII mysqlcon1(&mysql, m_connection_pool);
+                    // bind[0].buffer_type = MYSQL_TYPE_STRING;
+                    // bind[0].buffer = (void*)filename.c_str();
+                    // bind[0].buffer_length = filename.length();
+
+                    // bind[1].buffer_type = MYSQL_TYPE_STRING;
+                    // bind[1].buffer = (void*)username.c_str();
+                    // bind[1].buffer_length = username.length();
+
+                    // bind[2].buffer_type = MYSQL_TYPE_LONGLONG;
+                    // bind[2].buffer = &size;
+
+                    // bind[3].buffer_type = MYSQL_TYPE_STRING;
+                    // bind[3].buffer = (void*)time.c_str();
+                    // bind[3].buffer_length = time.length();
+
+                    // bind[4].buffer_type = MYSQL_TYPE_TINY;
+                    // bind[4].buffer = &dir;
+
+                    // bind[5].buffer_type = MYSQL_TYPE_STRING;
+                    // bind[5].buffer = (void*)md5.c_str();
+                    // bind[5].buffer_length = md5.length();
+
+                    // bind[6].buffer_type = MYSQL_TYPE_STRING;
+                    // bind[6].buffer = (void*)file_path.c_str();
+                    // bind[6].buffer_length = file_path.length();
+
+                    // if (mysql_stmt_bind_param(stmt, bind)) {
+                    //     std::cout << "Bind parameters failed: " << mysql_stmt_error(stmt) << std::endl;
+                        
+                    // }
+
+                    // if (mysql_stmt_execute(stmt)) {
+                    //     std::cout << "Execute statement failed: " << mysql_stmt_error(stmt) << std::endl;
+                        
+                    // } else {
+                    //     std::cout << "Data inserted successfully" << std::endl;
+                    // }
+
+                    // mysql_stmt_close(stmt);
+                    /*std::string query = "INSERT INTO file_table (file_name, user_name, parent_folder_id, file_size, upload_time, is_directory, md5, relative_file_path) VALUES ('" + filename + "', '" + username + "', 0, " + std::to_string(size) + ", '" + time + "', " + std::to_string(dir) + ", '" + md5 + "', '" + file_path + "');";
+                    //sprintf(insert_query, "INSERT INTO user_files (user_account, uuid, file_path, download_count) VALUES ('%s', '%s', '%s', %d)",
+                    //        account, uuidTmp, file_path, download_count);
+                    
 
                     // 执行插入语句
-                    if (mysql_query(mysql, insert_query) != 0)
+                    if (mysql_query(mysql, query.c_str()) != 0)
                     {
                         fprintf(stderr, "插入数据时出错: %s\n", mysql_error(mysql));
-                        
-                        strcpy(m_url_real, "/re_send_rev.html");
+
+                        //strcpy(m_url_real, "/re_send_rev.html");
                     }
                     else
                     {
-                        strcpy(m_url_real, keyhtml.c_str()); // 返回带密钥的html
+                        //strcpy(m_url_real, keyhtml.c_str()); // 返回带密钥的html
 
-                        success_return_key_html = true;
+                        //success_return_key_html = true;
 
-                        uuid_file_path.insert(std::pair<string, string>(string(uuid), string(file_path)));
-                    }
-                    m_connection_pool->ReleaseConnection(mysql);
-
-
+                        //uuid_file_path.insert(std::pair<string, string>(string(uuidTmp), string(file_path)));
+                    }*/
                     
                     
-                    
-                    
-                }
-                else
-                {
-                    strcpy(m_url_real, "/re_send_rev.html");
-                }
+                //}
+                //else
+                //{
+                //    m_linger = true;
+                //    return INTERNAL_ERROR;
+                    //strcpy(m_url_real, "/re_send_rev.html");
+                //}
 
                 // printf("m_url_real:\n%s\n",m_url_real);
+
             }
+
             // cout << "表哥， 我粗来了哦\n";
             // cout << "name: " << user_name << "password: " << user_password << std::endl;
         }
-        else
-        {
-            strcpy(m_url_real, "/reLog.html");
-        }
-        if (success_return_key_html)
-        {
-            strncpy(m_real_file, m_url_real, strlen(m_url_real));
-        }
-        else
-        {
-            strncpy(m_real_file + len, m_url_real, strlen(m_url_real));
-        }
-
-        free(m_url_real);
+        m_linger = true;
+        return UPLOAD_REQUEST_40;
     }
-    else
-    {
-        strncpy(m_real_file + len, m_url, FILENAME_LEN - len - 1);
-    }
-    // printf("m_real_file:\n%s\n",m_real_file);
-
-    LOG_INFO("-----------------------%s\n", m_real_file);
-    // strncpy( m_real_file + len, m_url, FILENAME_LEN - len -1 );
-    // 获取m_real_file文件的相关的状态信息， -1失败， 0成功
-    if (stat(m_real_file, &m_file_stat) < 0)
-    {
-        return NO_RESOURCE;
-    }
-
-    // 判断访问权限
-    if (!(m_file_stat.st_mode & S_IROTH))
-    {
-        return FORBIDDEN_REQUEST;
-    }
-
-    // 判断是否是目录
-    if (S_ISDIR(m_file_stat.st_mode))
-    {
-        return BAD_REQUEST;
-    }
-
-    // 以只读方式打开文件
-    int fd = open(m_real_file, O_RDONLY);
-    if (fd == -1)
-    {
-        perror("open");
-        return BAD_REQUEST;
-    }
-    // 创建内存映射
-    m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    close(fd);
-    return FILE_REQUEST;
+    return GET_REQUEST;
 }
 
 // 对内存映射区执行munmap操作
@@ -1155,7 +1306,7 @@ bool http_conn::write()
         printf("write\n:%s", m_write_buf);
         if (bytes_to_send <= 0)
         {
-            cout<<" 没有数据要发送了\n";
+            cout << " 没有数据要发送了\n";
             unmap();
             modfd(m_epollfd, m_sockfd, EPOLLIN);
 
@@ -1171,7 +1322,6 @@ bool http_conn::write()
             }
         }
     }
-
 }
 
 // 往写缓冲写入待发送的数据
@@ -1225,13 +1375,26 @@ bool http_conn::add_content_length(int content_length)
 
 bool http_conn::add_content_type()
 {
-    return add_response("Content-Type:%s\r\n", "text/html");
+    // return add_response("Content-Type:%s\r\n", "text/html");
+    return add_response("Content-Type:%s\r\n", "application/json");
 }
 
 bool http_conn::add_content_text_plain()
 {
     // return add_response( "Content-Type:%s\r\n", "application/octet-stream");
     return add_response("Content-Type:%s\r\n", "multipart/form-data");
+    /*
+
+
+        application/json：如果你的服务器返回一个 JSON 格式的响应，这是最常用的 Content-Type。你可以在响应中包含用户的身份验证令牌、用户信息或其他相关数据。前端可以方便地解析 JSON 数据并进行相应的处理。
+
+        text/html：如果你想返回一个 HTML 页面作为响应，可以使用该 Content-Type。在登录成功后，你可以将用户重定向到一个特定的 HTML 页面，展示欢迎信息或其他相关内容。
+
+        application/xml：如果你的服务器返回 XML 格式的响应，你可以选择使用该 Content-Type。这在某些特定的场景中可能有用，比如与其他系统进行数据交换。
+
+        text/plain：如果你只需要返回简单的文本响应，可以使用该 Content-Type。例如，你可以返回一个简单的成功消息或错误消息。
+
+    */
 }
 
 bool http_conn::add_linger()
@@ -1294,6 +1457,36 @@ bool http_conn::process_write(HTTP_CODE ret)
         if (m_file_stat.st_size != 0)
         {
             add_headers(m_file_stat.st_size);
+            /*
+
+
+            m_iv[0].iov_base = m_write_buf;
+            这行代码将一个缓冲区的起始地址 m_write_buf 赋值给了第一个 iovec 结构体的 iov_base 成员。
+            iovec 结构体用于描述数据缓冲区的地址和长度。
+
+            m_iv[0].iov_len = m_write_idx;
+            这行代码将缓冲区的长度 m_write_idx 赋值给了第一个 iovec 结构体的 iov_len 成员。
+            这表示了要发送的数据的长度。
+
+            m_iv[1].iov_base = m_file_address;
+            这行代码将文件映射到内存后的地址 m_file_address 赋值给了第二个 iovec 结构体的 iov_base 成员。
+            这意味着我们希望发送这块内存中的数据。
+
+            m_iv[1].iov_len = m_file_stat.st_size;
+            这行代码将文件的大小 m_file_stat.st_size 赋值给了第二个 iovec 结构体的 iov_len 成员。
+            这表示了要发送的文件数据的长度。
+
+            m_iv_count = 2;
+            这行代码设置了 iovec 数组中元素的数量，这里是2，表示有两个 iovec 结构体。
+            每个结构体描述了一个要发送的数据块。
+
+            bytes_to_send = m_write_idx + m_file_stat.st_size;
+            这行代码计算了要发送的总字节数，包括了缓冲区中的数据字节数和文件数据的字节数之和。
+            这个值通常用于进一步的处理，比如发送数据的循环发送直到全部数据都被发送完毕为止。
+
+            综合来说，这段代码将一个缓冲区和一个文件映射到内存后的地址都描述成了 iovec 结构体，方便后续的数据发送操作。
+            iovec 结构体常用于类似 writev() 这样的系统调用，用于一次性发送多个不相邻的数据块。
+            */
             m_iv[0].iov_base = m_write_buf;
             m_iv[0].iov_len = m_write_idx;
             m_iv[1].iov_base = m_file_address;
@@ -1301,6 +1494,7 @@ bool http_conn::process_write(HTTP_CODE ret)
             m_iv_count = 2;
 
             bytes_to_send = m_write_idx + m_file_stat.st_size;
+
             // printf("%s\n",m_file_address);
             return true;
         }
@@ -1312,7 +1506,115 @@ bool http_conn::process_write(HTTP_CODE ret)
             {
                 return false;
             }
+            bytes_to_send = m_write_idx + strlen(ok_string);
         }
+
+    case REGISTER_REQUEST_10:
+    {
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":10, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+    case REGISTER_REQUEST_11:
+    {
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":11, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+
+    case LOGIN_REQUEST_20:
+    {
+        add_status_line(200, ok_200_title);
+        add_headers(m_allFilesJson.length());
+        if(!add_content(m_allFilesJson.c_str())){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+
+    case LOGIN_REQUEST_21:
+    {
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":21, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+
+    case ASK_FILE_EXIST_30:{
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":30, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+    case ASK_FILE_EXIST_31:{
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":31, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+
+    case UPLOAD_REQUEST_40:
+    {
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":40, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
+
+    case UPLOAD_REQUEST_41:
+    {
+        add_status_line(200, ok_200_title);
+        const char* jsonStr = "{\"CODE\":41, \"zhuzhu\":\"ni\"}";
+        add_headers(strlen(jsonStr));
+        if(!add_content(jsonStr)){cout<<" add content failed"<<endl;}
+        m_iv[0].iov_base = m_write_buf;
+        m_iv[0].iov_len = m_write_idx;
+        m_iv_count = 1;
+        bytes_to_send = m_write_idx;
+
+        return true;
+    }
 
     default:
         return false;

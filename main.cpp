@@ -10,10 +10,11 @@
 #include<errno.h>
 #include"threadpool.h"
 #include"http_conn.h"
-#include"lst_timer.h"
 
-#include"log.h"
-#include"sql_connection_pool.h"
+//#include"lst_timer.h"
+
+//#include"log.h"
+//#include"sql_connection_pool.h"
 static int m_close_log = 0;
 
 
@@ -29,7 +30,16 @@ static int pipefd[2];
 extern int setnonblocking( int fd);
 extern void addfd( int epollfd, int fd, bool one_shot);
 extern void removefd( int epollfd, int fd);
-
+/*int setnonblocking( int fd);
+void addfd( int epollfd, int fd, bool one_shot);
+void removefd( int epollfd, int fd);*/
+/*int setnonblocking(int fd)
+{
+    int old_option = fcntl(fd, F_GETFL);
+    int new_option = old_option | O_NONBLOCK;
+    fcntl(fd, F_SETFL, new_option);
+    return old_option;
+}*/
 void addfd( int epollfd, int fd){
     epoll_event event;
     event.data.fd = fd;
@@ -80,17 +90,19 @@ void addsig(int sig, void(handler)(int)){
 }
 int main(int argc, char *argv[])
 {
-
+    
     if( argc <= 1){
         printf("Usage: %s port_number\n", basename(argv[0]));
         return 1;
     }
-
+    
     int port = atoi(argv[1]);
+    
     addsig(SIGPIPE, SIG_IGN);
+    
 
-
-
+    
+    
     //log
     Log::get_instance()->init("../log_info", 0 ,2000, 800000, 20);
     LOG_INFO("------------------LOG init----------------");
@@ -106,13 +118,14 @@ int main(int argc, char *argv[])
         LOG_DEBUG("DEBUG:main.cpp-threadpool create wrong");
         return 1;
     }
+    
     LOG_INFO("------------------thread pool OK---------------");
     http_conn *users = new http_conn[ MAX_FD ];
     assert(users);
 
     //初始化数据去读取表
     users->initmysql_result(connPool);
-
+    
     LOG_INFO("----------------------initmysql---------------");
     int listenfd = socket( PF_INET, SOCK_STREAM,0);
     if(listenfd == -1){

@@ -9,7 +9,7 @@
 #include<mutex>
 #include<thread>
 #include<pthread.h>
-#include"../noactive/locker.h"
+#include"locker.h"
 
 #include<assert.h>
 #include<sys/stat.h>

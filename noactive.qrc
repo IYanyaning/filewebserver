@@ -1,6 +1,0 @@
-<RCC>
-    <qresource prefix="/">
-        <file>noactive/lst_timer.h</file>
-        <file>noactive/nonactive_conn.cpp</file>
-    </qresource>
-</RCC>
